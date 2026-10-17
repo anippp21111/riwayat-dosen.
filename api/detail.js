@@ -1,4 +1,4 @@
-const { request, recordsFrom } = require('../lib/pddikti');
+const { request, fallbackRequest, recordsFrom } = require('../lib/pddikti');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -9,7 +9,13 @@ module.exports = async function handler(req, res) {
   if (!id || id.length > 200 || !paths[type]) return res.status(400).json({ error: 'Permintaan detail tidak valid.' });
   try {
     const payload = await request(paths[type], { method: 'POST', body: { id } });
-    return res.status(200).json({ data: recordsFrom(payload) });
+    const data = recordsFrom(payload);
+    if (data.length) return res.status(200).json({ data, source: 'pddikti' });
+  } catch { /* Lanjutkan ke penyedia cadangan jika API utama dibatasi. */ }
+  try {
+    const route = type === 'pendidikan' ? 'study-history' : 'teaching-history';
+    const payload = await fallbackRequest(`/dosen/${route}/${encodeURIComponent(id)}/`);
+    return res.status(200).json({ data: recordsFrom(payload), source: 'pddikti-proxy' });
   } catch (error) {
     return res.status(502).json({ error: error.message || 'Detail dosen gagal dimuat.' });
   }

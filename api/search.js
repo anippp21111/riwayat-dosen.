@@ -1,4 +1,4 @@
-const { request, recordsFrom, pick, isPnl, normalize } = require('../lib/pddikti');
+const { request, fallbackRequest, recordsFrom, pick, isPnl, normalize } = require('../lib/pddikti');
 
 async function pnlRoster(query) {
   const response = await fetch('https://data.pnl.ac.id/dosen/list', {
@@ -30,6 +30,19 @@ module.exports = async function handler(req, res) {
 
   let lastError;
   const pddiktiRecords = [];
+  try {
+    const records = recordsFrom(await fallbackRequest(`/search/dosen/${encodeURIComponent(keyword)}/`));
+    pddiktiRecords.push(...records);
+    const data = records.filter(isPnl).map((record) => ({
+      id: pick(record, ['id', 'id_dosen', 'id_sdm', 'id_person']),
+      nama: pick(record, ['nama', 'nama_dosen']),
+      nidn: pick(record, ['nidn']),
+      nuptk: pick(record, ['nuptk']),
+      nama_prodi: pick(record, ['nama_prodi', 'prodi']),
+    })).filter((record) => record.id && record.nama);
+    if (data.length) return res.status(200).json({ data, source: 'pddikti-proxy' });
+  } catch (error) { lastError = error; }
+
   const paths = req.query.fast === '1'
     ? [`/pencarian/dosen/${encodeURIComponent(keyword)}`]
     : [`/pencarian/dosen/${encodeURIComponent(keyword)}`, `/pencarian/en/call/${encodeURIComponent(keyword)}`];
@@ -49,7 +62,8 @@ module.exports = async function handler(req, res) {
   }
   try {
     const roster = await pnlRoster(keyword);
-    const rosterByNidn = new Map(roster.filter((item) => item.nidn).map((item) => [item.nidn, item]));
+    const normalizeNidn = (value) => String(value || '').replace(/\D/g, '').replace(/^0+/, '');
+    const rosterByNidn = new Map(roster.filter((item) => item.nidn).map((item) => [normalizeNidn(item.nidn), item]));
     const exactNames = new Map();
     for (const item of roster) {
       const name = normalize(item.nama);
@@ -58,7 +72,7 @@ module.exports = async function handler(req, res) {
     const matched = pddiktiRecords.map((record) => {
       const nidn = pick(record, ['nidn']);
       const nama = pick(record, ['nama', 'nama_dosen']);
-      const verified = (nidn && rosterByNidn.get(nidn)) || (exactNames.get(normalize(nama)) || []).length === 1 && exactNames.get(normalize(nama))[0];
+      const verified = (nidn && rosterByNidn.get(normalizeNidn(nidn))) || (exactNames.get(normalize(nama)) || []).length === 1 && exactNames.get(normalize(nama))[0];
       if (!verified) return null;
       return {
         id: pick(record, ['id', 'id_dosen', 'id_sdm', 'id_person']),
