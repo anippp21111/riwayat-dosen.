@@ -28,6 +28,17 @@ module.exports = async function handler(req, res) {
   const keyword = String(req.query.q || '').trim();
   if (keyword.length < 3 || keyword.length > 120) return res.status(400).json({ error: 'Masukkan nama dosen minimal 3 karakter.' });
 
+  // Keep lecturer-name search independent of PDDikti availability. The PNL roster
+  // is the authoritative filter for this app and is enough to return names/NIDNs.
+  if (req.query.fast !== '1') {
+    try {
+      const data = await pnlRoster(keyword);
+      return res.status(200).json({ data, source: 'roster' });
+    } catch (error) {
+      return res.status(502).json({ error: error.message || 'Daftar dosen PNL gagal dimuat.', data: [] });
+    }
+  }
+
   let lastError;
   const pddiktiRecords = [];
   try {
