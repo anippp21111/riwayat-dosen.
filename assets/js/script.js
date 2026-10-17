@@ -80,14 +80,17 @@
   }
 
   async function openDetail(lecturer) {
-    if (!lecturer.id) {
-      showMessage($('#home-message'), 'Profil ditemukan pada daftar PNL, tetapi ID riwayat PDDikti untuk dosen ini belum tersedia. Coba cari menggunakan NIDN.', true);
-      return;
+    let selected = lecturer;
+    if (!selected.id && selected.nidn) {
+      try {
+        const result = await api(`/api/search?fast=1&q=${encodeURIComponent(selected.nidn)}`);
+        selected = (result.data || []).find((item) => item.id && item.nidn === lecturer.nidn) || selected;
+      } catch { /* Tetap buka profil daftar PNL jika PDDikti tidak merespons. */ }
     }
     const url = new URL(location.href);
-    url.search = `?id=${encodeURIComponent(lecturer.id)}`;
-    history.pushState({ lecturer }, '', url);
-    renderDetail(lecturer);
+    url.search = selected.id ? `?id=${encodeURIComponent(selected.id)}` : `?nidn=${encodeURIComponent(selected.nidn || '')}`;
+    history.pushState({ lecturer: selected }, '', url);
+    renderDetail(selected);
   }
   async function renderDetail(lecturer) {
     home.hidden = true;
@@ -98,6 +101,11 @@
     $('#lecturer-facts').innerHTML = [lecturer.nama_prodi, lecturer.nidn ? `NIDN ${lecturer.nidn}` : '', lecturer.nuptk ? `NUPTK ${lecturer.nuptk}` : ''].filter(Boolean).map((fact) => `<span>${escapeHtml(fact)}</span>`).join('');
     $('#education-content').innerHTML = '<p class="empty">Memuat data…</p>';
     $('#teaching-content').innerHTML = '<p class="empty">Memuat data…</p>';
+    if (!lecturer.id) {
+      showMessage($('#education-content'), 'Profil dosen ditemukan pada daftar resmi PNL, tetapi riwayat pendidikan belum tersedia di PDDikti.');
+      showMessage($('#teaching-content'), 'Riwayat mengajar belum tersedia di PDDikti.');
+      return;
+    }
     for (const type of ['pendidikan', 'mengajar']) {
       const target = type === 'pendidikan' ? $('#education-content') : $('#teaching-content');
       try {
