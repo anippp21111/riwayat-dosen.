@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Riwayat Dosen PNL</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=4">
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <a href="./">Politeknik Negeri Lhokseumawe</a>
+      <span>Direktori Dosen</span>
+    </header>
+
+    <main id="home-view">
+      <div class="hero">
+        <h1>Riwayat pendidikan<br>dosen PNL</h1>
+        <p>Telusuri jenjang, kampus, dan tahun kelulusan dosen Politeknik Negeri Lhokseumawe.</p>
+      </div>
+      <form class="search" id="search-form">
+        <input type="search" id="search-input" name="q" placeholder="Ketik nama dosen…" minlength="3" required autocomplete="off" autofocus>
+        <button type="submit" id="search-button">Cari</button>
+      </form>
+      <div class="export-box">
+        <div>
+          <strong>Rekap pendidikan seluruh dosen</strong>
+          <p>Unduh rekap semua dosen PNL dengan kolom kampus dan tahun lulus S1, S2, serta S3.</p>
+        </div>
+        <button class="export-button" id="export-button" type="button">Unduh Excel</button>
+      </div>
+      <div id="home-message" aria-live="polite"></div>
+      <div id="results"></div>
+    </main>
+
+    <main id="detail-view" hidden>
+      <a class="back" id="back-link" href="./">← Kembali</a>
+      <div class="profile">
+        <h1 id="lecturer-name"></h1>
+        <div class="facts" id="lecturer-facts"></div>
+      </div>
+      <section class="block">
+        <h2>Riwayat pendidikan</h2>
+        <div id="education-content"><p class="empty">Memuat data…</p></div>
+      </section>
+      <section class="block">
+        <h2>Riwayat mengajar</h2>
+        <div id="teaching-content"><p class="empty">Memuat data…</p></div>
+      </section>
+    </main>
+    <footer>Sumber: situs PDDikti dan portal data PNL. Data dapat berbeda dengan arsip kepegawaian kampus.</footer>
+  </div>
+  <script src="assets/js/script.js?v=5" defer></script>
+</body>
+</html>

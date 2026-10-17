@@ -1,0 +1,8 @@
+{
+  "name": "riwayat-dosen-pnl",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node local/server.js"
+  }
+}
