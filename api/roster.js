@@ -1,3 +1,5 @@
+const { educationFor } = require('../lib/education');
+
 function decodeHtml(value) {
   return value
     .replace(/&nbsp;/gi, ' ')
@@ -32,8 +34,15 @@ module.exports = async function handler(req, res) {
       });
     }
     if (!rows.length) throw new Error('Data daftar dosen portal PNL kosong atau formatnya berubah.');
+    let educationAvailable = false;
+    try {
+      for (const row of rows) {
+        row.pendidikan = educationFor({ nidn: row.nidn, nama: row.nama });
+        if (row.pendidikan.length) educationAvailable = true;
+      }
+    } catch { /* Roster PNL dan pencarian PDDikti tetap berjalan bila file rekap tidak terbaca. */ }
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
-    return res.status(200).json({ data: rows });
+    return res.status(200).json({ data: rows, educationAvailable });
   } catch (error) {
     return res.status(502).json({ error: error.message || 'Daftar dosen PNL gagal dimuat.' });
   }

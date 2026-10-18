@@ -1,12 +1,25 @@
 const { request, fallbackRequest, recordsFrom } = require('../lib/pddikti');
+const { educationFor } = require('../lib/education');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Metode tidak diizinkan.' });
   const id = String(req.query.id || '').trim();
+  const nidn = String(req.query.nidn || '').trim();
+  const nama = String(req.query.nama || '').trim();
   const type = String(req.query.type || 'pendidikan');
   const paths = { pendidikan: '/dosen/study-history', mengajar: '/dosen/teaching-history' };
-  if (!id || id.length > 200 || !paths[type]) return res.status(400).json({ error: 'Permintaan detail tidak valid.' });
+  if ((!id && !nidn && !nama) || id.length > 200 || !paths[type]) return res.status(400).json({ error: 'Permintaan detail tidak valid.' });
+  if (type === 'pendidikan') {
+    try {
+      const records = educationFor({ nidn, nama });
+      if (records.length) return res.status(200).json({ data: records, source: 'rekap-pnl' });
+    } catch (error) {
+      // A missing or incompatible file must not prevent the PDDikti lookup below.
+      if (!id) return res.status(200).json({ data: [], source: 'rekap-pnl', warning: error.message });
+    }
+  }
+  if (!id) return res.status(200).json({ data: [], source: 'pddikti' });
   try {
     const payload = await request(paths[type], { method: 'POST', body: { id } });
     const data = recordsFrom(payload);

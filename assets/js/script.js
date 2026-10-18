@@ -102,14 +102,20 @@
     $('#education-content').innerHTML = '<p class="empty">Memuat data…</p>';
     $('#teaching-content').innerHTML = '<p class="empty">Memuat data…</p>';
     if (!lecturer.id) {
-      showMessage($('#education-content'), 'Profil dosen ditemukan pada daftar resmi PNL, tetapi riwayat pendidikan belum tersedia di PDDikti.');
+      try {
+        const params = new URLSearchParams({ type: 'pendidikan', nidn: lecturer.nidn || '', nama: lecturer.nama || '' });
+        const payload = await api(`/api/detail?${params}`);
+        if (payload.data?.length) renderEducation(payload.data);
+        else showMessage($('#education-content'), 'Profil dosen ditemukan pada daftar PNL, tetapi riwayat pendidikan belum ditemukan di PDDikti maupun file rekap yang diunggah.');
+      } catch (error) { showMessage($('#education-content'), error.message, true); }
       showMessage($('#teaching-content'), 'Riwayat mengajar belum tersedia di PDDikti.');
       return;
     }
     for (const type of ['pendidikan', 'mengajar']) {
       const target = type === 'pendidikan' ? $('#education-content') : $('#teaching-content');
       try {
-        const payload = await api(`/api/detail?type=${type}&id=${encodeURIComponent(lecturer.id)}`);
+        const params = new URLSearchParams({ type, id: lecturer.id, nidn: lecturer.nidn || '', nama: lecturer.nama || '' });
+        const payload = await api(`/api/detail?${params}`);
         type === 'pendidikan' ? renderEducation(payload.data || []) : renderTeaching(payload.data || []);
       } catch (error) { showMessage(target, error.message, true); }
     }
@@ -193,7 +199,10 @@
         const key = lecturer.nidn || normalize(lecturer.nama);
         const prior = cache[key];
         const retryFailed = prior?.failed && Date.now() - Number(prior.failedAt || 0) > 10 * 60 * 1000;
-        if (!prior || retryFailed) {
+        if (lecturer.pendidikan?.length) {
+          cache[key] = { data: lecturer.pendidikan, status: 'Riwayat dari file rekap PNL.' };
+          saveCache(cache);
+        } else if (!prior || retryFailed) {
           try {
             const query = lecturer.nidn || lecturer.nama;
             const result = await api(`/api/search?fast=1&q=${encodeURIComponent(query)}`);
@@ -246,7 +255,8 @@
       link.href = href;
       link.download = `rekap-pendidikan-dosen-pnl-${new Date().toISOString().slice(0, 10)}.xls`;
       document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(href);
-      showMessage($('#home-message'), `File berisi ${lecturers.length} dosen. Riwayat pendidikan yang gagal ditemukan diberi status di kolom terakhir.`);
+      const fromFile = lecturers.filter((lecturer) => lecturer.pendidikan?.length).length;
+      showMessage($('#home-message'), `File berisi ${lecturers.length} dosen. Riwayat dari rekap PNL tersedia untuk ${fromFile} dosen; data lain dicari melalui PDDikti.`);
     } catch (error) { showMessage($('#home-message'), error.message, true); }
     finally { button.disabled = false; button.textContent = 'Unduh Excel'; }
   });

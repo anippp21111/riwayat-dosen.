@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/detail.js": { "includeFiles": "rekap-pendidikan-dosen-pnl*.xls" },
+    "api/roster.js": { "includeFiles": "rekap-pendidikan-dosen-pnl*.xls" }
+  }
+}
