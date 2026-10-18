@@ -88,7 +88,11 @@
       } catch { /* Tetap buka profil daftar PNL jika PDDikti tidak merespons. */ }
     }
     const url = new URL(location.href);
-    url.search = selected.id ? `?id=${encodeURIComponent(selected.id)}` : `?nidn=${encodeURIComponent(selected.nidn || '')}`;
+    const params = new URLSearchParams();
+    if (selected.id) params.set('id', selected.id);
+    if (selected.nidn) params.set('nidn', selected.nidn);
+    if (selected.nama) params.set('nama', selected.nama);
+    url.search = params.toString();
     history.pushState({ lecturer: selected }, '', url);
     renderDetail(selected);
   }
@@ -106,9 +110,14 @@
         const params = new URLSearchParams({ type: 'pendidikan', nidn: lecturer.nidn || '', nama: lecturer.nama || '' });
         const payload = await api(`/api/detail?${params}`);
         if (payload.data?.length) renderEducation(payload.data);
-        else showMessage($('#education-content'), 'Profil dosen ditemukan pada daftar PNL, tetapi riwayat pendidikan belum ditemukan di PDDikti maupun file rekap yang diunggah.');
+        else showMessage($('#education-content'), payload.warning || 'Riwayat pendidikan belum ditemukan di PDDikti maupun file rekap yang diunggah.');
       } catch (error) { showMessage($('#education-content'), error.message, true); }
-      showMessage($('#teaching-content'), 'Riwayat mengajar belum tersedia di PDDikti.');
+      try {
+        const params = new URLSearchParams({ type: 'mengajar', nidn: lecturer.nidn || '', nama: lecturer.nama || '' });
+        const payload = await api(`/api/detail?${params}`);
+        if (payload.data?.length) renderTeaching(payload.data);
+        else showMessage($('#teaching-content'), payload.warning || 'Riwayat mengajar belum ditemukan di PDDikti.');
+      } catch (error) { showMessage($('#teaching-content'), error.message, true); }
       return;
     }
     for (const type of ['pendidikan', 'mengajar']) {
@@ -116,7 +125,9 @@
       try {
         const params = new URLSearchParams({ type, id: lecturer.id, nidn: lecturer.nidn || '', nama: lecturer.nama || '' });
         const payload = await api(`/api/detail?${params}`);
-        type === 'pendidikan' ? renderEducation(payload.data || []) : renderTeaching(payload.data || []);
+        const records = payload.data || [];
+        if (!records.length && payload.warning) showMessage(target, payload.warning);
+        else type === 'pendidikan' ? renderEducation(records) : renderTeaching(records);
       } catch (error) { showMessage(target, error.message, true); }
     }
   }
@@ -275,5 +286,29 @@
   });
 
   const initial = new URLSearchParams(location.search);
-  if (initial.get('q')) { $('#search-input').value = initial.get('q'); $('#search-form').requestSubmit(); }
+  if (initial.get('q')) {
+    $('#search-input').value = initial.get('q');
+    $('#search-form').requestSubmit();
+  } else if (initial.get('nidn') || initial.get('nama') || initial.get('id')) {
+    (async () => {
+      const nidn = initial.get('nidn') || '';
+      const nama = initial.get('nama') || '';
+      let lecturer = { id: initial.get('id') || '', nidn, nama: nama || 'Dosen PNL' };
+      try {
+        const query = nidn || nama;
+        if (query) {
+          const result = await api(`/api/search?q=${encodeURIComponent(query)}`);
+          const match = (result.data || []).find((item) => (nidn && String(item.nidn || '').replace(/\D/g, '') === nidn.replace(/\D/g, ''))
+            || (!nidn && normalize(item.nama) === normalize(nama)));
+          if (match) lecturer = { ...match, id: lecturer.id || match.id || '' };
+        }
+        if (nidn && !lecturer.nama_prodi) {
+          const roster = await api('/api/roster');
+          const match = (roster.data || []).find((item) => String(item.nidn || '').replace(/\D/g, '') === nidn.replace(/\D/g, ''));
+          if (match) lecturer = { ...match, id: lecturer.id, nama_prodi: match.prodi };
+        }
+        await renderDetail(lecturer);
+      } catch (error) { showMessage($('#home-message'), error.message, true); }
+    })();
+  }
 })();
